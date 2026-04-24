@@ -3,7 +3,7 @@ from dataclasses import dataclass
 from typing      import Optional
 
 #import numpy as np
-#import torch
+import torch
 
 
 class AbstractLossApplier(ABC):
@@ -34,6 +34,11 @@ class IterationLogger:
     
     def reset(self):
         self.count = 0
+
+
+def load_all(dataset, collate_fn):
+    dataloader = torch.utils.data.DataLoader(dataset, batch_size=len(dataset), collate_fn=collate_fn)
+    return list(dataloader)[0]
 
 
 @dataclass
@@ -87,7 +92,7 @@ class NetTrainer:
         
     # end NetTrainer.train
     
-    def train_valid(self, net, dataloader, n_epochs, dataset_valid, metric):
+    def train_valid(self, net, dataloader, n_epochs, dataset_valid, metric_applier):
         
         net.train(True)
         
@@ -114,12 +119,14 @@ class NetTrainer:
                 
             # end inner for
             
-            loss_valid = self.loss_applier(net, dataset_valid)
+            loss_valid   = self.loss_applier(net, load_all(dataset_valid     , collate_fn=dataloader.collate_fn))
+            metric_train =    metric_applier(net, load_all(dataloader.dataset, collate_fn=dataloader.collate_fn))
+            metric_valid =    metric_applier(net, load_all(dataset_valid     , collate_fn=dataloader.collate_fn))
             
             loss_history_train.append(loss.item())
             loss_history_valid.append(loss_valid.item())
-            metric_history_train.append(metric(dataloader.dataset.tensor_Y, net.forward(dataloader.dataset.tensor_X)))
-            metric_history_valid.append(metric(dataset_valid.tensor_Y, net.forward(dataset_valid.tensor_X)))
+            metric_history_train.append(metric_train)
+            metric_history_valid.append(metric_valid)
             
             if self.iteration_logger is not None:
                 self.iteration_logger.reset()

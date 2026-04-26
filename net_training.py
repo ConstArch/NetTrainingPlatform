@@ -36,8 +36,10 @@ class IterationLogger:
         self.count = 0
 
 
-def load_all(dataset, collate_fn):
+def load_all(dataset, collate_fn=torch.utils.data.default_collate):
+    
     dataloader = torch.utils.data.DataLoader(dataset, batch_size=len(dataset), collate_fn=collate_fn)
+    
     return list(dataloader)[0]
 
 

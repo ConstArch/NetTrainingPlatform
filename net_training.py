@@ -9,7 +9,11 @@ import torch
 class AbstractLossApplier(ABC):
     
     @abstractmethod
-    def __call__(self, net, batch):
+    def to_batch(self, net, batch):
+        pass
+    
+    @abstractmethod
+    def to_dataloader(self, net, dataloader):
         pass
 
 
@@ -64,7 +68,7 @@ class NetTrainer:
             # begin inner for
             for batch in dataloader:
                 
-                loss = self.loss_applier(net, batch)
+                loss = self.loss_applier.to_batch(net, batch)
                 
                 optimizer.zero_grad()
                 loss.backward()
@@ -94,23 +98,23 @@ class NetTrainer:
         
     # end NetTrainer.train
     
-    def train_valid(self, net, dataloader, n_epochs, dataset_valid, metric_applier):
+    def train_test(self, net, train_dataloader, n_epochs, test_dataloader, metric_applier):
         
         net.train(True)
         
         optimizer = self.optimizer_factory.with_parameters(net.parameters())
-        loss_history_train = []
-        loss_history_valid = []
-        metric_history_train = []
-        metric_history_valid = []
+        train_loss_history   = []
+        test_loss_history    = []
+        train_metric_history = []
+        test_metric_history  = []
         
         # begin outer for
         for _ in range(n_epochs):
             
             # begin inner for
-            for batch in dataloader:
+            for batch in train_dataloader:
                 
-                loss = self.loss_applier(net, batch)
+                loss = self.loss_applier.to_batch(net, batch)
                 
                 optimizer.zero_grad()
                 loss.backward()
@@ -121,14 +125,15 @@ class NetTrainer:
                 
             # end inner for
             
-            loss_valid   = self.loss_applier(net, load_all(dataset_valid     , collate_fn=dataloader.collate_fn))
-            metric_train =    metric_applier(net, load_all(dataloader.dataset, collate_fn=dataloader.collate_fn))
-            metric_valid =    metric_applier(net, load_all(dataset_valid     , collate_fn=dataloader.collate_fn))
+            train_loss   = self.loss_applier.to_dataloader(net, train_dataloader)
+            test_loss    = self.loss_applier.to_dataloader(net,  test_dataloader)
+            train_metric =    metric_applier.to_dataloader(net, train_dataloader)
+            test_metric  =    metric_applier.to_dataloader(net,  test_dataloader)
             
-            loss_history_train.append(loss.item())
-            loss_history_valid.append(loss_valid.item())
-            metric_history_train.append(metric_train)
-            metric_history_valid.append(metric_valid)
+            train_loss_history  .append(train_loss.item())
+            test_loss_history   .append( test_loss.item())
+            train_metric_history.append(train_metric)
+            test_metric_history .append( test_metric)
             
             if self.iteration_logger is not None:
                 self.iteration_logger.reset()
@@ -145,10 +150,10 @@ class NetTrainer:
         
         return {
             'net': net,
-            'loss_history_train': loss_history_train,
-            'loss_history_valid': loss_history_valid,
-            'metric_history_train': metric_history_train,
-            'metric_history_valid': metric_history_valid
+            'train_loss_history'  : train_loss_history,
+            'test_loss_history'   :  test_loss_history,
+            'train_metric_history': train_metric_history,
+            'test_metric_history' :  test_metric_history
         }
         
     # end NetTrainer.train_valid

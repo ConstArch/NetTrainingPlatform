@@ -2,7 +2,6 @@ from abc         import ABC, abstractmethod
 from dataclasses import dataclass
 from typing      import Optional
 
-#import numpy as np
 import torch
 
 
@@ -31,10 +30,10 @@ class IterationLogger:
         self.duration = duration
         self.count = 0
     
-    def tick(self):
+    def tick(self, info=None):
         self.count += 1
         if self.count % self.duration == 0:
-            self.message_sender(self.count)
+            self.message_sender(self.count, info)
     
     def reset(self):
         self.count = 0
@@ -75,7 +74,7 @@ class NetTrainer:
                 optimizer.step()
                 
                 if self.iteration_logger is not None:
-                    self.iteration_logger.tick()
+                    self.iteration_logger.tick({'loss': loss.item()})
                 
             # end inner for
             
@@ -85,7 +84,7 @@ class NetTrainer:
                 self.iteration_logger.reset()
             
             if self.epoch_logger is not None:
-                self.epoch_logger.tick()
+                self.epoch_logger.tick({'loss': loss.item()})
             
         # end outer for
         
@@ -121,7 +120,7 @@ class NetTrainer:
                 optimizer.step()
                 
                 if self.iteration_logger is not None:
-                    self.iteration_logger.tick()
+                    self.iteration_logger.tick({'loss': loss.item()})
                 
             # end inner for
             
@@ -139,7 +138,14 @@ class NetTrainer:
                 self.iteration_logger.reset()
             
             if self.epoch_logger is not None:
-                self.epoch_logger.tick()
+                self.epoch_logger.tick(
+                    {
+                        'train_loss'  : train_loss.item(),
+                        'test_loss'   : test_loss.item(),
+                        'train_metric': train_metric,
+                        'test_metric' : test_metric
+                    }
+                )
             
         # end outer for
         

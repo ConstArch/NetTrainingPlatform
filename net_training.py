@@ -2,6 +2,7 @@ from abc         import ABC, abstractmethod
 from dataclasses import dataclass
 from typing      import Optional
 
+import datetime
 import torch
 
 
@@ -33,7 +34,7 @@ class IterationLogger:
     def tick(self, info=None):
         self.count += 1
         if self.count % self.duration == 0:
-            self.message_sender(self.count, info)
+            self.message_sender(self.count, datetime.datetime.now(), info)
     
     def reset(self):
         self.count = 0

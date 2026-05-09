@@ -3,6 +3,8 @@ from dataclasses import dataclass
 from typing      import Optional
 
 import datetime
+import gc
+
 import torch
 
 
@@ -98,9 +100,7 @@ class NetTrainer:
         
     # end NetTrainer.train
     
-    def train_test(self, net, train_dataloader, n_epochs, test_dataloader, metric_applier):
-        
-        net.train(True)
+    def train_test(self, net, train_dataloader, n_epochs, test_dataloader, metric_applier, gc_collect=False, cuda_cache_clear=False):
         
         optimizer = self.optimizer_factory.with_parameters(net.parameters())
         train_loss_history   = []
@@ -111,6 +111,7 @@ class NetTrainer:
         # begin outer for
         for _ in range(n_epochs):
             
+            net.train(True)
             # begin inner for
             for batch in train_dataloader:
                 
@@ -125,10 +126,20 @@ class NetTrainer:
                 
             # end inner for
             
-            train_loss   = self.loss_applier.to_dataloader(net, train_dataloader)
-            test_loss    = self.loss_applier.to_dataloader(net,  test_dataloader)
-            train_metric =    metric_applier.to_dataloader(net, train_dataloader)
-            test_metric  =    metric_applier.to_dataloader(net,  test_dataloader)
+            if gc_collect:
+                gc.collect()
+            
+            if cuda_cache_clear:
+                torch.cuda.empty_cache()
+            
+            net.train(False)
+            # begin with
+            with torch.no_grad():
+                train_loss   = self.loss_applier.to_dataloader(net, train_dataloader)
+                test_loss    = self.loss_applier.to_dataloader(net,  test_dataloader)
+                train_metric =    metric_applier.to_dataloader(net, train_dataloader)
+                test_metric  =    metric_applier.to_dataloader(net,  test_dataloader)
+            # end with
             
             train_loss_history  .append(train_loss.item())
             test_loss_history   .append( test_loss.item())
@@ -152,8 +163,6 @@ class NetTrainer:
         
         if self.epoch_logger is not None:
             self.epoch_logger.reset()
-        
-        net.train(False)
         
         return {
             'net': net,
